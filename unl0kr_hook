@@ -1,0 +1,77 @@
+#!/usr/bin/ash
+
+run_hook() {
+    modprobe -a -q dm-crypt >/dev/null 2>&1
+    [ "${quiet:=y}" = "y" ] && CSQUIET=">/dev/null"
+
+    # cryptdevice can contain : which needs to be escaped.
+    # shellcheck disable=SC2162
+    IFS=: read cryptdev cryptname cryptoptions <<EOF
+${cryptdevice:=}
+EOF
+
+    set -f
+    OLDIFS="$IFS"; IFS=,
+    for cryptopt in ${cryptoptions}; do
+        case ${cryptopt} in
+            allow-discards|discard)
+                cryptargs="${cryptargs} --allow-discards"
+                ;;
+            no-road-workqueue|perf-no_read_workqueue)
+                cryptargs="${cryptargs} --perf-no_read_workqueue"
+                ;;
+            no-write-workqueue|perf-no_write_workqueue)
+                cryptargs="${cryptargs} --perf-no_write_workqueue"
+                ;;
+            sector-size=*)
+                cryptargs="${cryptargs} --sector-size ${cryptopt#*=}"
+                ;;
+            *)
+                echo "Encryption option '${cryptopt}' not known, ignoring." >&2
+                ;;
+        esac
+    done
+    set +f
+    IFS="$OLDIFS"
+    unset OLDIFS
+
+    # This may happen if third party hooks do the crypt setup
+    if [ -b /dev/mapper/"${cryptname}" ]; then
+        echo Device "${cryptname}" already exists, not doing any crypt setup.
+        return 0
+    fi
+
+    # rootdelay is assigned by parse_cmdline
+    # shellcheck disable=SC2154
+    if resolved=$(resolve_device "${cryptdev}" "${rootdelay}"); then
+        crypttried=0
+        crypttries=3
+
+        while [ "${crypttried}" -lt "${crypttries}" ]; do
+            CRYPTABSOURCE=${resolved} CRYPTTAB_TRIED=${crypttried} unl0kr |
+                eval cryptsetup open --type luks "${resolved}" "${cryptname}" "${cryptargs}" - "${CSQUIET}"
+            if [ -e /dev/mapper/"${cryptname}" ]; then
+                touch /.done
+                break
+            else
+                crypttried=$((crypttried+1))
+            fi
+        done
+
+        if [ "${crypttried}" -ge "${cypttries}" ]; then
+            err "Maximum password tries (${crypttries}) exceeded, aborting..."
+            return 0
+        fi
+
+        if [ ! -e "/dev/mapper/${cryptname}" ]; then
+            err "Password succeeded, but ${cryptname} creation failed, aborting..."
+            return 0
+        fi
+    fi
+}
+
+cleanup_hook() {
+    if [ -f /.done ]; then
+        rm /.done
+    fi
+}
