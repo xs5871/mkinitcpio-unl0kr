@@ -28,10 +28,11 @@ build() {
     add_binary '/usr/lib/ossl-modules/legacy.so'
 
     add_module 'hid_multitouch'
+    add_module 'hid_generic'
+
     add_binary 'unl0kr'
     add_file '/etc/unl0kr.conf'
 
-    add_full_dir '/usr/share/libinput'
     map add_udev_rule \
         '60-drm.rules' \
         '60-input-id.rules' \
@@ -39,6 +40,8 @@ build() {
         '70-mouse.rules' \
         '70-touchpad.rules' \
         '80-libinput-device-groups.rules'
+
+    add_full_dir '/usr/share/libinput'
     add_full_dir '/usr/share/X11/xkb'
 
     add_runscript
