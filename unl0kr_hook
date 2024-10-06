@@ -47,6 +47,7 @@ EOF
         return 0
     fi
 
+(
     crypttried=0
     crypttries=3
 
@@ -70,10 +71,12 @@ EOF
         err "Password succeeded, but ${cryptname} creation failed, aborting..."
         return 0
     fi
+) &
 }
 
-cleanup_hook() {
+run_cleanuphook() {
     if [ -f /.done ]; then
         rm /.done
     fi
+    killall unl0kr 2>/dev/null
 }
