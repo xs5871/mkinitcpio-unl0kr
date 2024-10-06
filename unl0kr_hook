@@ -58,7 +58,7 @@ EOF
             fi
         done
 
-        if [ "${crypttried}" -ge "${cypttries}" ]; then
+        if [ "${crypttried}" -ge "${crypttries}" ]; then
             err "Maximum password tries (${crypttries}) exceeded, aborting..."
             return 0
         fi
