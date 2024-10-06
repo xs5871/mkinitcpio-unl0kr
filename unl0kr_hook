@@ -43,30 +43,32 @@ EOF
 
     # rootdelay is assigned by parse_cmdline
     # shellcheck disable=SC2154
-    if resolved=$(resolve_device "${cryptdev}" "${rootdelay}"); then
-        crypttried=0
-        crypttries=3
+    if ! resolved=$(resolve_device "${cryptdev}" "${rootdelay}"); then
+        return 0
+    fi
 
-        while [ "${crypttried}" -lt "${crypttries}" ]; do
-            CRYPTABSOURCE=${resolved} CRYPTTAB_TRIED=${crypttried} unl0kr |
-                eval cryptsetup open --type luks "${resolved}" "${cryptname}" "${cryptargs}" - "${CSQUIET}"
-            if [ -e /dev/mapper/"${cryptname}" ]; then
-                touch /.done
-                break
-            else
-                crypttried=$((crypttried+1))
-            fi
-        done
+    crypttried=0
+    crypttries=3
 
-        if [ "${crypttried}" -ge "${crypttries}" ]; then
-            err "Maximum password tries (${crypttries}) exceeded, aborting..."
-            return 0
+    while [ "${crypttried}" -lt "${crypttries}" ]; do
+        CRYPTABSOURCE=${resolved} CRYPTTAB_TRIED=${crypttried} unl0kr |
+            eval cryptsetup open --type luks "${resolved}" "${cryptname}" "${cryptargs}" - "${CSQUIET}"
+        if [ -e /dev/mapper/"${cryptname}" ]; then
+            touch /.done
+            break
+        else
+            crypttried=$((crypttried+1))
         fi
+    done
 
-        if [ ! -e "/dev/mapper/${cryptname}" ]; then
-            err "Password succeeded, but ${cryptname} creation failed, aborting..."
-            return 0
-        fi
+    if [ "${crypttried}" -ge "${crypttries}" ]; then
+        err "Maximum password tries (${crypttries}) exceeded, aborting..."
+        return 0
+    fi
+
+    if [ ! -e "/dev/mapper/${cryptname}" ]; then
+        err "Password succeeded, but ${cryptname} creation failed, aborting..."
+        return 0
     fi
 }
 
